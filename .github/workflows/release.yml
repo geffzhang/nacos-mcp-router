@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: write
-  packages: write
 
 jobs:
   package:
@@ -45,9 +44,12 @@ jobs:
           if-no-files-found: error
 
       - name: Push to GitHub Packages
+        # GITHUB_TOKEN has read-only access to GitHub Packages by default;
+        # GH_PACKAGES_TOKEN must be a PAT with `write:packages` + `read:packages` scopes.
+        # https://github.com/orgs/community/discussions/66683
         run: dotnet nuget push "artifacts/*.nupkg" \
           --source "https://nuget.pkg.github.com/geffzhang/index.json" \
-          --api-key "${{ secrets.GITHUB_TOKEN }}" \
+          --api-key "${{ secrets.GH_PACKAGES_TOKEN }}" \
           --skip-duplicate
 
       - name: Push to NuGet.org
