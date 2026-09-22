@@ -47,10 +47,18 @@ jobs:
         # GITHUB_TOKEN has read-only access to GitHub Packages by default;
         # GH_PACKAGES_TOKEN must be a PAT with `write:packages` + `read:packages` scopes.
         # https://github.com/orgs/community/discussions/66683
-        run: dotnet nuget push "artifacts/*.nupkg" \
-          --source "https://nuget.pkg.github.com/geffzhang/index.json" \
-          --api-key "${{ secrets.GH_PACKAGES_TOKEN }}" \
-          --skip-duplicate
+        env:
+          GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
+        run: |
+          if [ -z "${GH_PACKAGES_TOKEN}" ]; then
+            echo "::error::GH_PACKAGES_TOKEN secret is not set."
+            exit 1
+          fi
+          echo "Token length: ${#GH_PACKAGES_TOKEN}"
+          dotnet nuget push "artifacts/*.nupkg" \
+            --source "https://nuget.pkg.github.com/geffzhang/index.json" \
+            --api-key "${GH_PACKAGES_TOKEN}" \
+            --skip-duplicate
 
       - name: Push to NuGet.org
         run: dotnet nuget push "artifacts/*.nupkg" \
