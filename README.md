@@ -115,3 +115,10 @@ See [the .NET router design](docs/superpowers/specs/2026-09-14-dotnet-mcp-router
 ## License
 
 nacos-mcp-router is licensed under the Apache 2.0 License. See [LICENSE](LICENSE) for details.
+
+## Publishing
+
+The project is packaged as a [.NET global tool](https://www.nuget.org/packages/NacosMcpRouter)
+and published to NuGet.org and GitHub Packages through a GitHub Actions
+release workflow. See [docs/publish-to-nuget.md](docs/publish-to-nuget.md) for the
+full pipeline, required configuration, and troubleshooting.
