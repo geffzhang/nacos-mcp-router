@@ -1,33 +1,28 @@
-# Publishing `NacosMcpRouter` to NuGet
+# 将 `NacosMcpRouter` 发布到 NuGet
 
-This document describes how `NacosMcpRouter` is packaged as a .NET global tool and
-published to **GitHub Packages** and **NuGet.org** through a single GitHub Actions
-release workflow.
+本文档介绍如何将 `NacosMcpRouter` 打包为 .NET 全局工具，并通过单一 GitHub Actions release 工作流同时发布到 **GitHub Packages** 和 **NuGet.org**。
 
-## Overview
+## 概述
 
-`NacosMcpRouter` is a .NET 10 executable (MCP server). Publishing it as a
-**.NET global tool** lets users install and start the server with a single
-command:
+`NacosMcpRouter` 是一个 .NET 10 可执行程序（MCP server）。将其作为 **.NET 全局工具（global tool）** 发布后，用户可使用一条命令完成安装并启动服务：
 
 ```bash
 dotnet tool install -g NacosMcpRouter
 nacos-mcp-router
 ```
 
-The package is published simultaneously to two feeds:
+包同时推送到两个 feed：
 
-| Feed | Purpose | Authentication |
+| Feed | 用途 | 鉴权方式 |
 |---|---|---|
-| [nuget.org](https://www.nuget.org/packages/NacosMcpRouter) | Public discovery and consumption | `NUGET_API_KEY` secret |
-| `nuget.pkg.github.com/geffzhang` | Mirrored artifact inside the GitHub org | `GH_PACKAGES_TOKEN` (PAT) |
+| [nuget.org](https://www.nuget.org/packages/NacosMcpRouter) | 公开分发与发现 | `NUGET_API_KEY` secret |
+| `nuget.pkg.github.com/geffzhang` | GitHub 组织内镜像 | `GH_PACKAGES_TOKEN`（Classic PAT） |
 
-## Project changes
+## 项目改动
 
 ### `src/NacosMcpRouter/NacosMcpRouter.csproj`
 
-Added a `<PropertyGroup>` block with NuGet metadata and a `<ItemGroup>` that
-links the repository `README.md` into the package root.
+新增一段 NuGet 元数据 `<PropertyGroup>` 与一个将仓库根 `README.md` 链接进包根目录的 `<ItemGroup>`。
 
 ```xml
 <PropertyGroup>
@@ -51,18 +46,18 @@ links the repository `README.md` into the package root.
 </PropertyGroup>
 
 <ItemGroup>
-  <!-- The README lives in the repository root; link it into the package root. -->
+  <!-- README 位于仓库根目录，通过 Link 引入包根 -->
   <None Include="..\..\README.md" Link="README.md" Pack="true" PackagePath="\" />
 </ItemGroup>
 ```
 
-Key settings:
+关键设置说明：
 
-- `IsPackable=true` + `PackAsTool=true` → produces a `.NET` tool package
-- `ToolCommandName` → installed command name (`nacos-mcp-router`)
-- `PackageReadmeFile=README.md` → README shown on the NuGet gallery page
+- `IsPackable=true` + `PackAsTool=true` → 生成 .NET 工具包
+- `ToolCommandName` → 安装后的可执行命令名（`nacos-mcp-router`）
+- `PackageReadmeFile=README.md` → 在 NuGet gallery 页面展示 README
 
-### Verifying locally
+### 本地验证打包
 
 ```bash
 dotnet pack src/NacosMcpRouter/NacosMcpRouter.csproj \
@@ -71,22 +66,17 @@ dotnet pack src/NacosMcpRouter/NacosMcpRouter.csproj \
   -p:PackageVersion=1.0.0-test
 ```
 
-The output is `artifacts/NacosMcpRouter.1.0.0-test.nupkg`. Inspect the
-metadata with:
+产出 `artifacts/NacosMcpRouter.1.0.0-test.nupkg`。查看元数据：
 
 ```bash
 unzip -p artifacts/NacosMcpRouter.1.0.0-test.nupkg NacosMcpRouter.nuspec
 ```
 
-A correctly configured package shows `<packageType name="DotnetTool" />`,
-the linked `README.md`, and all transitive runtime natives under
-`tools/net10.0/any/runtimes/`.
+正确打包后应看到 `<packageType name="DotnetTool" />`、已链接的 `README.md`，以及所有传递依赖的原生库位于 `tools/net10.0/any/runtimes/` 下。
 
-## Release workflow (`.github/workflows/release.yml`)
+## Release 工作流（`.github/workflows/release.yml`）
 
-The existing `release.yml` workflow already packs the project on every tag
-push and creates a GitHub Release. Two new steps push the produced `.nupkg`
-to the feeds.
+现有 `release.yml` 已在 tag 推送时打包并创建 GitHub Release。新增两个步骤把生成的 `.nupkg` 推送到两个 feed。
 
 ```yaml
 name: Publish .NET package
@@ -98,8 +88,8 @@ on:
 
 permissions:
   contents: write
-  # NOTE: do NOT add `packages: write` — the GitHub Packages NuGet feed
-  # requires a PAT even when the workflow has packages:write. See below.
+  # 注意：不要设置 packages: write —— 即使设置了，GITHUB_TOKEN
+  # 仍然对 GitHub Packages NuGet feed 只有读权限（详见下文）。
 
 jobs:
   package:
@@ -170,117 +160,100 @@ jobs:
         run: gh release create "$GITHUB_REF_NAME" artifacts/*.*nupkg --generate-notes --verify-tag
 ```
 
-Each `Push` step uses an `env:` block to surface a clear error if the
-secret is missing, and `--skip-duplicate` so a re-run after a partial
-failure does not error.
+每个 `Push` 步骤都使用 `env:` 块，在 secret 缺失时给出明确的错误信息；并使用 `--skip-duplicate`，使部分失败后的重跑不会因版本已发布而报错。
 
-## Required GitHub repository secrets
+## 必需的 GitHub 仓库 Secrets
 
-Configure both secrets at
-**Settings → Secrets and variables → Actions → New repository secret**.
+在仓库的 **Settings → Secrets and variables → Actions → New repository secret** 中配置以下两个 secret。
 
-### `GH_PACKAGES_TOKEN` — Personal Access Token (Classic)
+### `GH_PACKAGES_TOKEN` —— Classic Personal Access Token
 
-The `GITHUB_TOKEN` issued to workflows only has **read access** to the
-GitHub Packages NuGet feed by default — even when the workflow has
-`packages: write`. The feed will return `Your request could not be
-authenticated` with a misleading 403. Use a Classic PAT instead.
+Workflow 运行时默认的 `GITHUB_TOKEN` 对 GitHub Packages NuGet feed 仅有**只读访问权限** —— 即便工作流声明了 `packages: write` 也是如此。Feed 会返回 `Your request could not be authenticated`（伴随一个误导性的 403）。必须使用 Classic PAT 替代。
 
-1. **https://github.com/settings/tokens → Generate new token (classic)**
-2. Note: `nacos-mcp-router-publish`
-3. Expiration: 365 days
-4. Scopes:
+1. 打开 **https://github.com/settings/tokens → Generate new token (classic)**
+2. Note：`nacos-mcp-router-publish`
+3. Expiration：365 天
+4. Scopes 勾选：
    - `write:packages`
    - `read:packages`
-5. Generate, copy the value, save as `GH_PACKAGES_TOKEN`.
+5. 点击生成，复制 token 值，保存为 `GH_PACKAGES_TOKEN`
 
-### `NUGET_API_KEY` — NuGet.org API key
+### `NUGET_API_KEY` —— NuGet.org API Key
 
-1. Sign in to **https://www.nuget.org/**
-2. **Account → API Keys → Create**
-3. Name: `nacos-mcp-router-publish`
-4. **Glob Pattern**: `*`  *(or `geffzhang/*` to scope to your packages)*
-5. **Select Scopes**: `Push new packages and package versions`
-6. Create, paste the key as `NUGET_API_KEY`.
+1. 登录 **https://www.nuget.org/**
+2. 顶部 **Account → API Keys → Create**
+3. Name：`nacos-mcp-router-publish`
+4. **Glob Pattern**：`*`  *（或 `geffzhang/*` 限定到本账号的包）*
+5. **Select Scopes**：`Push new packages and package versions`
+6. Create，将生成的 key 保存为 `NUGET_API_KEY`
 
-## Triggering a release
+## 触发发布
 
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
 ```
 
-The workflow will:
+工作流会自动完成：
 
-1. Check out the tag
-2. Restore + `dotnet pack` → `NacosMcpRouter.<version>.nupkg` and `.snupkg`
-3. Upload both as workflow artifacts
-4. Push the `.nupkg` to GitHub Packages (using `GH_PACKAGES_TOKEN`)
-5. Push the `.nupkg` to NuGet.org (using `NUGET_API_KEY`)
-6. Create a GitHub Release with the artifacts attached
+1. 检出 tag
+2. 还原依赖并执行 `dotnet pack` → 产出 `NacosMcpRouter.<version>.nupkg` 与 `.snupkg`
+3. 上传两个文件为 workflow artifacts
+5. 将 `.nupkg` 推送到 GitHub Packages（使用 `GH_PACKAGES_TOKEN`）
+6. 将 `.nupkg` 推送到 NuGet.org（使用 `NUGET_API_KEY`）
+7. 创建 GitHub Release 并附带上述文件
 
-`PackageVersion` is derived from the tag (with the leading `v` stripped),
-so `v1.0.3` produces `NacosMcpRouter.1.0.3`.
+`PackageVersion` 由 tag 自动推导（去除前导 `v`），所以 `v1.0.3` 会产生 `NacosMcpRouter.1.0.3`。
 
-## Installing and running the published tool
+## 安装与使用已发布的工具
 
 ```bash
 dotnet tool install -g NacosMcpRouter --version 1.0.0
 export NACOS_ADDR=127.0.0.1:8848
-nacos-mcp-router   # starts the MCP server
+nacos-mcp-router   # 启动 MCP server
 ```
 
-Updating:
+升级：
 
 ```bash
 dotnet tool update -g NacosMcpRouter
 ```
 
-Uninstalling:
+卸载：
 
 ```bash
 dotnet tool uninstall -g NacosMcpRouter
 ```
 
-## Troubleshooting
+## 故障排查
 
-### `Push to GitHub Packages` fails with 403 "could not be authenticated"
+### `Push to GitHub Packages` 报 403 "could not be authenticated"
 
-Cause: the workflow is using `secrets.GITHUB_TOKEN`, which has read-only
-access to the GitHub Packages NuGet feed.
+原因：工作流使用了 `secrets.GITHUB_TOKEN`，它对 GitHub Packages NuGet feed 仅只读。
 
-Fix: rotate `GH_PACKAGES_TOKEN` to a **Classic PAT** with
-`write:packages` and `read:packages` scopes. Do **not** set
-`packages: write` on the workflow — it is not sufficient.
+解决：将 `GH_PACKAGES_TOKEN` 换为 **Classic PAT**，勾选 `write:packages` 和 `read:packages` 作用域。**不要**在 workflow 中设置 `packages: write` —— 那是无效的。
 
-### `Push to NuGet.org` step exits 0 but the package does not appear
+### `Push to NuGet.org` 步骤退出码为 0 但包未出现
 
-`dotnet nuget push` returns 0 on a successful HTTP 2xx response from the
-NuGet push endpoint. NuGet.org can accept the upload and then reject the
-package asynchronously (auto-moderation, validation, etc.) without making
-the client fail.
+`dotnet nuget push` 在收到 NuGet push 端点的 HTTP 2xx 响应时即返回 0。NuGet.org 可能接受上传后再异步拒绝该包（自动审核、校验失败等），而**不会**让客户端报错。
 
-If the workflow log shows no error but `https://api.nuget.org/v3-flatcontainer/<id-lowercased>/index.json`
-still returns `404`:
+如果工作流日志没有任何错误，但
+`https://api.nuget.org/v3-flatcontainer/<id-lowercased>/index.json`
+仍然返回 `404`：
 
-1. Wait 5–15 minutes — NuGet.org indexing is asynchronous.
-2. Check the package status as the NuGet.org account owner:
-   https://www.nuget.org/packages/<id>/ — look for a *Deleted* or
-   *Unlisted* state set by automated moderation.
-3. Re-run the push from a local machine using the same API key:
+1. 等待 5–15 分钟 —— NuGet.org 索引是异步的。
+2. 以 NuGet.org 账号身份查看包状态：
+   https://www.nuget.org/packages/<id>/ —— 注意是否被自动审核设为 *Deleted* 或 *Unlisted*。
+3. 在本地用同一个 API key 手动重推一次，能看到真实的服务器错误（license 元数据、校验信息等）：
    ```bash
    dotnet nuget push artifacts/*.nupkg \
      --source https://api.nuget.org/v3/index.json \
      --api-key "$NUGET_API_KEY"
    ```
-   This surfaces the actual server-side error (license metadata,
-   validation message, etc.).
 
-### `dotnet pack` complains `NU5039: 包中不存在自述文件`
+### `dotnet pack` 报 `NU5039: 包中不存在自述文件`
 
-The `PackageReadmeFile` path must resolve relative to the `.csproj`
-directory AND the file must be declared in the project (with
-`Pack="true"`). The project uses:
+`PackageReadmeFile` 路径需相对于 `.csproj` 目录解析，且该文件必须在项目中被声明（带 `Pack="true"`）。本项目使用：
 
 ```xml
 <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -289,15 +262,11 @@ directory AND the file must be declared in the project (with
 </ItemGroup>
 ```
 
-If the README moves, update both the `Include` path and the
-`PackageReadmeFile` value.
+如果 README 位置变化，需同时更新 `Include` 路径和 `PackageReadmeFile` 值。
 
-### Workflow fires on tag but no release is created
+### Tag 已推送但没有创建 Release
 
-The last `Create GitHub Release` step uses `gh release create` and is
-skipped if any prior step fails. Open the failed run in the Actions tab,
-inspect the `Push to NuGet.org` step output, fix the cause, then
-re-trigger by deleting and re-pushing the tag:
+最后一个 `Create GitHub Release` 步骤使用 `gh release create`，任意前置步骤失败都会跳过它。在 Actions Tab 打开失败的那次运行，查看 `Push to NuGet.org` 步骤输出，修复后删除并重新推送 tag 即可重新触发：
 
 ```bash
 git tag -d v1.0.0
@@ -306,10 +275,10 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-## Reference
+## 参考
 
-- [.NET global tool packaging](https://learn.microsoft.com/en-us/dotnet/core/tools/global-tools-how-to-publish)
-- [`dotnet pack` reference](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-pack)
-- [`dotnet nuget push` reference](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-nuget-push)
-- [Working with the GitHub Packages NuGet registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-nuget-registry)
-- [NuGet.org API keys](https://learn.microsoft.com/en-us/nuget/nuget-org/nuget-org-api-keys)
+- [.NET 全局工具打包](https://learn.microsoft.com/zh-cn/dotnet/core/tools/global-tools-how-to-publish)
+- [`dotnet pack` 参考](https://learn.microsoft.com/zh-cn/dotnet/core/tools/dotnet-pack)
+- [`dotnet nuget push` 参考](https://learn.microsoft.com/zh-cn/dotnet/core/tools/dotnet-nuget-push)
+- [使用 GitHub Packages NuGet 注册表](https://docs.github.com/zh/packages/working-with-a-github-packages-registry/working-with-the-nuget-registry)
+- [NuGet.org API Keys](https://learn.microsoft.com/zh-cn/nuget/nuget-org/nuget-org-api-keys)
