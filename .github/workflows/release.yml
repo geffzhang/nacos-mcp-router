@@ -61,10 +61,18 @@ jobs:
             --skip-duplicate
 
       - name: Push to NuGet.org
-        run: dotnet nuget push "artifacts/*.nupkg" \
-          --source "https://api.nuget.org/v3/index.json" \
-          --api-key "${{ secrets.NUGET_API_KEY }}" \
-          --skip-duplicate
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if [ -z "${NUGET_API_KEY}" ]; then
+            echo "::error::NUGET_API_KEY secret is not set."
+            exit 1
+          fi
+          echo "Token length: ${#NUGET_API_KEY}"
+          dotnet nuget push "artifacts/*.nupkg" \
+            --source "https://api.nuget.org/v3/index.json" \
+            --api-key "${NUGET_API_KEY}" \
+            --skip-duplicate
 
       - name: Create GitHub Release
         env:
