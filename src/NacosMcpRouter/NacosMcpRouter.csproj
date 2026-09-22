@@ -4,7 +4,24 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>NacosMcpRouter</RootNamespace>
     <AssemblyName>NacosMcpRouter</AssemblyName>
+
+    <!-- NuGet packaging metadata -->
+    <IsPackable>true</IsPackable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>nacos-mcp-router</ToolCommandName>
+    <PackageId>NacosMcpRouter</PackageId>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Authors>nacos-mcp-router contributors</Authors>
+    <Description>A .NET 10 MCP server that searches, installs, and proxies MCP servers registered in Nacos. Connects to Nacos, discovers downstream MCP servers, and exposes them through Model Context Protocol tools.</Description>
+    <PackageTags>mcp;model-context-protocol;nacos;router;dotnet;agent</PackageTags>
+    <RepositoryUrl>https://github.com/geffzhang/nacos-mcp-router</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <IncludeBuildOutput>true</IncludeBuildOutput>
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\..\README.md" Link="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
